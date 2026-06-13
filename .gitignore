@@ -1,0 +1,22 @@
+# Source briefs + our generated planning docs — never commit
+docs/
+
+# Harness run output (persistence / observability artifacts)
+runs/
+
+# Secrets & env
+.env
+.env.*
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# OS
+.DS_Store
