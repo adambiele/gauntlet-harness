@@ -28,7 +28,7 @@ from harness.observability import (
     SPAN_GENERATE,
     span,
 )
-from harness.worker.base import StubWorker, Worker
+from harness.worker.base import SeededWorker, StubWorker, Worker
 from harness.worker.prompts import SYSTEM_PROMPT
 
 __all__ = [
@@ -376,6 +376,7 @@ def make_worker(name: str) -> Worker:
 
     Supported names:
     - ``"stub"``            → StubWorker (no LLM calls; deterministic)
+    - ``"demo"`` / ``"demo:<model>"`` → SeededWorker (plants a lie, a real model corrects it)
     - ``"sonnet"`` / ``"claude"`` → ClaudeWorker(claude-sonnet-4-6)
     - ``"haiku"``           → ClaudeWorker(claude-haiku-4-5)
     - ``"openai"`` / ``"gpt"``  → OpenAIWorker(gpt-4o)
@@ -389,6 +390,12 @@ def make_worker(name: str) -> Worker:
 
     if name == "stub":
         return StubWorker()
+
+    # "demo" or "demo:<inner>" — seed a guaranteed lie, then a real model fixes it on retry.
+    # The inner model defaults to haiku (cheap; correcting from a counterexample is easy).
+    if name == "demo" or name.startswith("demo:"):
+        inner_name = name.split(":", 1)[1] if ":" in name else "haiku"
+        return SeededWorker(make_worker(inner_name))
 
     if name in ("sonnet", "claude"):
         return ClaudeWorker(model="claude-sonnet-4-6")

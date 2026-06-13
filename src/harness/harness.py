@@ -123,6 +123,10 @@ def run(
         A summary dict: ``run_id``, counts, documented symbols, and the triage list.
     """
     emit = emit or (lambda _event: None)
+    # Some workers (e.g. the demo SeededWorker) opt out of replay: the cache is keyed by
+    # (symbol, lane, code_hash), so a PASS cached from an earlier run on the same module
+    # would mask a *different* claim in the same lane. See SeededWorker.bypass_replay_cache.
+    bypass_cache = getattr(worker, "bypass_replay_cache", False)
     aggregator = init_telemetry("harness")
     metrics_start = len(aggregator.records)  # slice point — isolate this run's spans
 
@@ -206,7 +210,7 @@ def run(
                     for claim in cleaned:
                         lane = _LANE_FOR_TYPE.get(claim.type)
                         result = None
-                        if lane is not None:
+                        if lane is not None and not bypass_cache:
                             cached = store.load_cached_pass(name, lane, symbol.code_hash)
                             if cached is not None:
                                 result = cached  # replay hit — skip re-execution

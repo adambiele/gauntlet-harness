@@ -27,6 +27,7 @@ const FALLBACK_EXAMPLES: Example[] = [
 // demonstrate the swap spans self-hosted models too) but disabled on the hosted demo —
 // Render can't reach a LAN model. It still works for local CLI runs (--worker qwen).
 const MODELS = [
+  { value: 'demo', label: 'Demo: seeded lie → live model corrects it', disabled: false },
   { value: 'sonnet', label: 'Claude Sonnet 4.6 (cloud)', disabled: false },
   { value: 'haiku', label: 'Claude Haiku 4.5 (cloud, faster)', disabled: false },
   { value: 'openai', label: 'OpenAI GPT-4o (cloud)', disabled: false },

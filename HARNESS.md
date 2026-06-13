@@ -138,6 +138,21 @@ self-hosted local model**, with no change to the harness. The output still ships
 claims regardless of which model produced them — and a weaker model simply trips more guardrails
 and alarms, visibly (we saw Haiku's first `sort_items` claim get caught and corrected on retry).
 
+**The `demo` worker (deterministic catch-and-recover).** A capable model writes *accurate*
+claims, so there's nothing to catch — great for real docs, undramatic for a demo. `SeededWorker`
+(name `demo`, or `demo:<model>`) fixes that: on the first attempt it injects **one guaranteed-false
+claim** (a wrong `expected` derived from the symbol's own `>>>` doctest, or a phantom-parameter
+signature if there's no doctest), so the FAIL → alarm → retry path *always* fires; on retry it
+delegates to a live model that, handed the harness's counterexample, regenerates true claims that
+verify and ship. The whole loop — *confident lie → caught with a real counterexample → corrected by
+a live model → only the truth ships* — runs deterministically on any model and any target.
+
+> **Known limitation (replay cache).** The PASS-replay cache is keyed by `(symbol, lane, code_hash)`,
+> not by claim content, so a PASS cached from an earlier run can mask a *different* claim in the same
+> lane on the same code. `SeededWorker` sets `bypass_replay_cache` to opt out (otherwise a prior
+> honest run would hide its injected lie). The general fix — fold claim identity into the cache key —
+> is noted but unbuilt.
+
 ---
 
 ## Scope (what's built vs designed-for)

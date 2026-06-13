@@ -27,7 +27,7 @@ from harness.contracts import (
     SignatureClaim,
     SymbolInfo,
 )
-from harness.worker.base import StubWorker
+from harness.worker.base import SeededWorker, StubWorker
 from harness.worker.llm_worker import (
     BaseLLMWorker,
     ClaudeWorker,
@@ -358,6 +358,56 @@ def test_make_worker_case_insensitive():
     """Factory should handle mixed case (strip + lower)."""
     w = make_worker("  Sonnet  ")
     assert isinstance(w, ClaudeWorker)
+
+
+def test_make_worker_demo_wraps_haiku():
+    w = make_worker("demo")
+    assert isinstance(w, SeededWorker)
+    assert isinstance(w._inner, ClaudeWorker)
+    assert w._inner.model == "claude-haiku-4-5"
+
+
+def test_make_worker_demo_inner_override():
+    w = make_worker("demo:sonnet")
+    assert isinstance(w, SeededWorker)
+    assert w._inner.model == "claude-sonnet-4-6"
+
+
+# ---------------------------------------------------------------------------
+# SeededWorker — deterministic lie on attempt 1, delegate on retry
+# ---------------------------------------------------------------------------
+
+def test_seeded_worker_plants_false_example_from_doctest():
+    """First attempt seeds ONE wrong ExampleClaim derived from the doctest (5 → not 5)."""
+    sym = _symbol(docstring="Return x + y.\n\n>>> add(2, 3)\n5")
+    seed = SeededWorker(StubWorker()).generate(sym, feedback=None)
+    assert len(seed) == 1
+    claim = seed[0]
+    assert claim.type == "example"
+    assert claim.cases[0].args == [2, 3]
+    assert claim.cases[0].expected != 5  # guaranteed-false expected → will FAIL on add
+
+
+def test_seeded_worker_falls_back_to_bad_signature_without_doctest():
+    """No usable doctest → a deliberately wrong signature claim (still falsifiable)."""
+    sym = _symbol(docstring="Return x + y.")  # no >>> example
+    claim = SeededWorker(StubWorker()).generate(sym, feedback=None)[0]
+    assert claim.type == "signature"
+    assert claim.claimed_signature != sym.signature
+    assert "_phantom" in claim.claimed_signature
+
+
+def test_seeded_worker_delegates_on_retry():
+    """With feedback present, SeededWorker passes through to the inner worker."""
+    sym = _symbol(name="sort_items", docstring=None)
+    inner = StubWorker()
+    out = SeededWorker(inner).generate(sym, feedback=[_alarm()])
+    # StubWorker's canned sort_items claims (signature + example), not the single seed.
+    assert out == inner.generate(sym, feedback=[_alarm()])
+
+
+def test_seeded_worker_requests_cache_bypass():
+    assert SeededWorker(StubWorker()).bypass_replay_cache is True
 
 
 # ---------------------------------------------------------------------------

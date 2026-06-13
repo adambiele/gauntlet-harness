@@ -63,7 +63,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument(
         "--worker",
         default="stub",
-        help="Worker/model: stub | sonnet | claude | haiku | openai | gpt | qwen | local (default: stub).",
+        help=(
+            "Worker/model: stub | demo[:<model>] | sonnet | claude | haiku | openai | gpt | "
+            "qwen | local (default: stub). 'demo' seeds a false claim then lets a live model "
+            "correct it — the deterministic catch-and-recover arc."
+        ),
     )
     parser.add_argument(
         "--runs-dir",
