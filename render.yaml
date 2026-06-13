@@ -1,0 +1,34 @@
+# Render Blueprint — backend web service (Docker). Connect this repo on render.com and
+# it provisions the service from here. Free plan: ephemeral FS + spins down when idle
+# (warm it before the demo). The SPA is deployed separately on Vercel.
+services:
+  - type: web
+    name: verified-docs-harness
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      # Ephemeral run store (free tier has no persistent disk — fine for the demo).
+      - key: HARNESS_RUNS_DIR
+        value: /tmp/runs
+      # Keep the server log clean (spans go to the in-process aggregator / Langfuse).
+      - key: HARNESS_CONSOLE_SPANS
+        value: "0"
+      # Required for the opus/haiku model swap. Set in the Render dashboard (not in git).
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      # Langfuse tracing is OPT-IN. Export happens ONLY when HARNESS_LANGFUSE=1 AND both
+      # keys are set — so it can never grab ambient credentials. Use a dedicated
+      # hackathon Langfuse project here, NOT any personal/work keys. Leave keys unset to
+      # skip export entirely (the flag alone does nothing without keys).
+      - key: HARNESS_LANGFUSE
+        value: "1"
+      - key: LANGFUSE_PUBLIC_KEY
+        sync: false
+      - key: LANGFUSE_SECRET_KEY
+        sync: false
+      # EU cloud by default; set to https://us.cloud.langfuse.com for the US region.
+      - key: LANGFUSE_HOST
+        value: https://cloud.langfuse.com

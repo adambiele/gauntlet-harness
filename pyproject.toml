@@ -24,6 +24,10 @@ http = [
     "fastapi>=0.110",
     "uvicorn>=0.29",
 ]
+# Optional OTLP export (Langfuse Cloud). Absent → init_telemetry degrades to a no-op.
+otel = [
+    "opentelemetry-exporter-otlp-proto-http>=1.20",
+]
 dev = [
     "pytest>=8",
 ]
