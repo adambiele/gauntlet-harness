@@ -431,3 +431,40 @@ def test_generate_records_span():
     records = agg.by_name(SPAN_GENERATE)
     assert len(records) >= 1
     assert records[-1]["attrs"].get("model") == "fake-model"
+
+
+# ---------------------------------------------------------------------------
+# Markdown-fence stripping — weak-model robustness (live Haiku bug repro)
+# ---------------------------------------------------------------------------
+
+def test_extract_json_strips_json_fence():
+    from harness.worker.llm_worker import _extract_json
+    fenced = '```json\n[{"type": "description", "target": "add", "prose": "x"}]\n```'
+    out = _extract_json(fenced)
+    assert out.startswith("[") and out.endswith("]")
+    assert "```" not in out
+
+
+def test_extract_json_strips_bare_fence_and_prose():
+    from harness.worker.llm_worker import _extract_json
+    raw = 'Here are the claims:\n```\n[{"type": "description", "target": "f", "prose": "p"}]\n```\nDone.'
+    out = _extract_json(raw)
+    assert out.startswith("[") and out.endswith("]")
+
+
+def test_extract_json_passes_clean_json_through():
+    from harness.worker.llm_worker import _extract_json
+    clean = '[{"type": "description", "target": "f", "prose": "p"}]'
+    assert _extract_json(clean) == clean
+
+
+def test_generate_parses_fenced_claim_json():
+    """Repro of the live Haiku bug: claim JSON wrapped in a ```json fence must parse."""
+    fenced = (
+        '```json\n[{"type": "signature", "target": "add", '
+        '"prose": "sums two ints", "claimed_signature": "(x: int, y: int) -> int"}]\n```'
+    )
+    claims = FakeWorker(fenced).generate(_symbol())
+    assert len(claims) == 1
+    assert claims[0].type == "signature"
+    assert claims[0].target == "add"

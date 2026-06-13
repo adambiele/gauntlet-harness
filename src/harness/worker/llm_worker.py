@@ -15,6 +15,7 @@ extra installed (``pip install .[workers]``).
 from __future__ import annotations
 
 import os
+import re
 from typing import Optional
 
 from harness.alarms.types import Alarm
@@ -101,6 +102,33 @@ def _build_user_prompt(symbol: SymbolInfo, feedback: Optional[list[Alarm]]) -> s
     return "\n".join(lines)
 
 
+_FENCE_RE = re.compile(r"```[a-zA-Z0-9]*[ \t]*\n?(.*?)```", re.DOTALL)
+
+
+def _extract_json(raw: str) -> str:
+    """Pull the bare JSON array/object out of a model response.
+
+    Models (especially smaller ones like Haiku/GPT-mini) often wrap their claim JSON in a
+    markdown code fence (```` ```json … ``` ````) and sometimes add a sentence of prose.
+    ``parse_claims`` needs the raw JSON, so strip any fence and, if prose still surrounds
+    it, slice to the outermost bracketed value. A clean JSON string passes through
+    unchanged; genuinely malformed output still falls through to ``ClaimParseError``.
+    """
+    s = raw.strip()
+    fenced = _FENCE_RE.search(s)
+    if fenced:
+        s = fenced.group(1).strip()
+    if s and s[0] not in "[{":
+        starts = [i for i in (s.find("["), s.find("{")) if i != -1]
+        if starts:
+            s = s[min(starts):]
+    if s and s[-1] not in "]}":
+        ends = [i for i in (s.rfind("]"), s.rfind("}")) if i != -1]
+        if ends:
+            s = s[: max(ends) + 1]
+    return s.strip()
+
+
 # ---------------------------------------------------------------------------
 # Base worker
 # ---------------------------------------------------------------------------
@@ -152,8 +180,9 @@ class BaseLLMWorker(Worker):
                 otel_span.set_attribute(ATTR_TOKENS_OUT, tokens_out)
                 otel_span.set_attribute(ATTR_COST_USD, cost_usd)
 
-        # parse_claims raises ClaimParseError on bad JSON — propagate; loop handles it.
-        return parse_claims(raw)
+        # Strip markdown fences/prose models love to add, then validate. parse_claims
+        # raises ClaimParseError on genuinely bad JSON — propagate; the loop handles it.
+        return parse_claims(_extract_json(raw))
 
     def _complete_with_usage(
         self, system: str, user: str

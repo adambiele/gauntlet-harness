@@ -32,6 +32,6 @@ services:
         sync: false
       - key: LANGFUSE_SECRET_KEY
         sync: false
-      # EU cloud by default; set to https://us.cloud.langfuse.com for the US region.
+      # US region (set to https://cloud.langfuse.com for EU).
       - key: LANGFUSE_HOST
-        value: https://cloud.langfuse.com
+        value: https://us.cloud.langfuse.com
