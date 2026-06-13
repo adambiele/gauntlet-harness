@@ -33,6 +33,7 @@ from harness.worker.prompts import SYSTEM_PROMPT
 __all__ = [
     "BaseLLMWorker",
     "ClaudeWorker",
+    "OpenAIWorker",
     "LocalWorker",
     "make_worker",
 ]
@@ -231,6 +232,65 @@ def _estimate_cost_anthropic(model: str, tokens_in: int, tokens_out: int) -> flo
 
 
 # ---------------------------------------------------------------------------
+# OpenAIWorker — OpenAI cloud API via the official openai SDK (lazy import)
+# ---------------------------------------------------------------------------
+
+class OpenAIWorker(BaseLLMWorker):
+    """Calls the OpenAI cloud API (``api.openai.com``) via the official ``openai`` SDK.
+
+    A second cloud provider alongside ``ClaudeWorker``, behind the same ``Worker`` seam —
+    so the model swap spans providers (Claude ↔ GPT ↔ local Qwen) with no harness change.
+    Reads ``OPENAI_API_KEY`` from the env; default model ``gpt-4o`` (pass another for the
+    swap). ``openai`` is imported lazily so the module loads without the SDK installed.
+    """
+
+    DEFAULT_MODEL = "gpt-4o"
+
+    def __init__(self, model: Optional[str] = None) -> None:
+        self.model = model or self.DEFAULT_MODEL
+
+    def _complete_with_usage(
+        self, system: str, user: str
+    ) -> tuple[str, int, int, float]:
+        """Call OpenAI chat.completions and return (text, tokens_in, tokens_out, cost)."""
+        # Lazy import — SDK not required at module load time.
+        import openai  # noqa: PLC0415
+
+        client = openai.OpenAI()  # reads OPENAI_API_KEY; default base_url = api.openai.com
+        response = client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+        )
+        raw = response.choices[0].message.content or ""
+        usage = response.usage
+        tokens_in = usage.prompt_tokens if usage else 0
+        tokens_out = usage.completion_tokens if usage else 0
+        cost_usd = _estimate_cost_openai(self.model, tokens_in, tokens_out)
+        return raw, tokens_in, tokens_out, cost_usd
+
+
+def _estimate_cost_openai(model: str, tokens_in: int, tokens_out: int) -> float:
+    """Rough per-token cost estimate (USD/MTok) for the dashboard metrics panel.
+
+    Approximate, possibly stale — a ballpark, not a bill. More specific prefixes (``-mini``)
+    are listed first so they win the ``startswith`` match.
+    """
+    _PRICES: dict[str, tuple[float, float]] = {
+        "gpt-4o-mini":  (0.15,  0.60),
+        "gpt-4o":       (2.50, 10.00),
+        "gpt-4.1-mini": (0.40,  1.60),
+        "gpt-4.1":      (2.00,  8.00),
+    }
+    for prefix, (inp, out) in _PRICES.items():
+        if model.startswith(prefix):
+            return (tokens_in * inp + tokens_out * out) / 1_000_000
+    return 0.0
+
+
+# ---------------------------------------------------------------------------
 # LocalWorker — openai-compatible SDK pointing at LAN LiteLLM proxy (lazy import)
 # ---------------------------------------------------------------------------
 
@@ -288,6 +348,7 @@ def make_worker(name: str) -> Worker:
     - ``"stub"``            → StubWorker (no LLM calls; deterministic)
     - ``"opus"`` / ``"claude"`` → ClaudeWorker(claude-opus-4-8)
     - ``"haiku"``           → ClaudeWorker(claude-haiku-4-5)
+    - ``"openai"`` / ``"gpt"``  → OpenAIWorker(gpt-4o)
     - ``"qwen"`` / ``"local"``  → LocalWorker(qwen3-coder)
 
     The harness passes this name from the model picker / CLI ``--worker`` arg (design.md
@@ -305,10 +366,13 @@ def make_worker(name: str) -> Worker:
     if name == "haiku":
         return ClaudeWorker(model="claude-haiku-4-5")
 
+    if name in ("openai", "gpt"):
+        return OpenAIWorker()
+
     if name in ("qwen", "local"):
         return LocalWorker()
 
     raise ValueError(
-        f"Unknown worker name {name!r}. "
-        "Valid names: 'stub', 'opus', 'claude', 'haiku', 'qwen', 'local'."
+        f"Unknown worker name {name!r}. Valid names: 'stub', 'opus', 'claude', "
+        "'haiku', 'openai', 'gpt', 'qwen', 'local'."
     )

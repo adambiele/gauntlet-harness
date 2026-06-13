@@ -19,6 +19,9 @@ services:
       # Required for the opus/haiku model swap. Set in the Render dashboard (not in git).
       - key: ANTHROPIC_API_KEY
         sync: false
+      # Required for the 'openai'/'gpt' worker. Set in the Render dashboard (not in git).
+      - key: OPENAI_API_KEY
+        sync: false
       # Langfuse tracing is OPT-IN. Export happens ONLY when HARNESS_LANGFUSE=1 AND both
       # keys are set — so it can never grab ambient credentials. Use a dedicated
       # hackathon Langfuse project here, NOT any personal/work keys. Leave keys unset to

@@ -10,6 +10,7 @@ const MODELS = [
   { value: 'stub', label: 'Stub (offline, instant)' },
   { value: 'opus', label: 'Claude Opus 4.8 (cloud)' },
   { value: 'haiku', label: 'Claude Haiku 4.5 (cloud, faster)' },
+  { value: 'openai', label: 'OpenAI GPT-4o (cloud)' },
   { value: 'qwen', label: 'Qwen3-Coder (local LAN)' },
 ] as const;
 

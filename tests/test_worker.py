@@ -28,7 +28,13 @@ from harness.contracts import (
     SymbolInfo,
 )
 from harness.worker.base import StubWorker
-from harness.worker.llm_worker import BaseLLMWorker, ClaudeWorker, LocalWorker, make_worker
+from harness.worker.llm_worker import (
+    BaseLLMWorker,
+    ClaudeWorker,
+    LocalWorker,
+    OpenAIWorker,
+    make_worker,
+)
 from harness.worker.prompts import SYSTEM_PROMPT
 
 
@@ -317,6 +323,18 @@ def test_make_worker_haiku():
     w = make_worker("haiku")
     assert isinstance(w, ClaudeWorker)
     assert w.model == "claude-haiku-4-5"
+
+
+def test_make_worker_openai():
+    w = make_worker("openai")
+    assert isinstance(w, OpenAIWorker)
+    assert w.model == "gpt-4o"
+
+
+def test_make_worker_gpt_alias():
+    w = make_worker("gpt")
+    assert isinstance(w, OpenAIWorker)
+    assert w.model == "gpt-4o"
 
 
 def test_make_worker_qwen():
