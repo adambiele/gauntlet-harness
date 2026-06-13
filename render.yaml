@@ -16,7 +16,7 @@ services:
       # Keep the server log clean (spans go to the in-process aggregator / Langfuse).
       - key: HARNESS_CONSOLE_SPANS
         value: "0"
-      # Required for the opus/haiku model swap. Set in the Render dashboard (not in git).
+      # Required for the sonnet/haiku model swap. Set in the Render dashboard (not in git).
       - key: ANTHROPIC_API_KEY
         sync: false
       # Required for the 'openai'/'gpt' worker. Set in the Render dashboard (not in git).

@@ -4,7 +4,7 @@
 
 Streams each loop event to stdout as it happens, then prints the run summary and the
 triage list. Uses ``LocalFileStore`` (writes ``runs/<id>/``) and ``make_worker`` so the
-active model is a config-time choice (``--worker stub|opus|haiku|qwen``).
+active model is a config-time choice (``--worker stub|sonnet|haiku|openai|qwen``).
 """
 
 from __future__ import annotations
@@ -63,7 +63,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument(
         "--worker",
         default="stub",
-        help="Worker/model: stub | opus | claude | haiku | qwen | local (default: stub).",
+        help="Worker/model: stub | sonnet | claude | haiku | openai | gpt | qwen | local (default: stub).",
     )
     parser.add_argument(
         "--runs-dir",

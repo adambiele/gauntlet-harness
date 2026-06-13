@@ -21,6 +21,7 @@ Run locally::
 
 from __future__ import annotations
 
+import ast
 import asyncio
 import functools
 import os
@@ -43,6 +44,9 @@ from harness.persistence.store import LocalFileStore
 from harness.worker.llm_worker import make_worker
 
 RUNS_DIR = os.environ.get("HARNESS_RUNS_DIR", "runs")
+# Directory of bundled example modules the dashboard picker lists. Relative to the
+# process CWD (``/app`` in the Docker image, where ``examples/`` is copied alongside src).
+EXAMPLES_DIR = os.environ.get("HARNESS_EXAMPLES_DIR", "examples")
 HEARTBEAT_SECONDS = 15
 
 app = FastAPI(title="Verified Documentation Harness")
@@ -86,6 +90,37 @@ def _error_event(message: str) -> AlarmEvent:
 def health() -> dict:
     """Liveness probe (Render health check)."""
     return {"status": "ok", "runs_dir": RUNS_DIR}
+
+
+@app.get("/examples")
+def list_examples() -> list[dict]:
+    """List bundled example modules for the dashboard picker.
+
+    One entry per ``.py`` file in ``EXAMPLES_DIR``, each with a relative ``path`` (sent
+    back verbatim as ``module_path`` on ``POST /run``) and a one-line ``title`` taken from
+    the module docstring. Files are read as text and parsed with ``ast`` only — never
+    imported (same no-import contract as the loader). Returns ``[]`` if the directory is
+    missing or unreadable.
+    """
+    out: list[dict] = []
+    try:
+        names = sorted(os.listdir(EXAMPLES_DIR))
+    except OSError:
+        return out
+    for fn in names:
+        if not fn.endswith(".py") or fn.startswith("_"):
+            continue
+        path = os.path.join(EXAMPLES_DIR, fn)
+        title = ""
+        try:
+            source = open(path, encoding="utf-8").read()
+            doc = ast.get_docstring(ast.parse(source))
+            if doc:
+                title = doc.strip().splitlines()[0]
+        except (OSError, SyntaxError, ValueError):
+            pass
+        out.append({"name": fn, "path": path, "title": title})
+    return out
 
 
 @app.post("/run")

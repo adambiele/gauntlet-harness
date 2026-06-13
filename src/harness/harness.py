@@ -116,7 +116,7 @@ def run(
         worker:      The (swappable) claim generator — Stub / Claude / Local.
         store:       Persistence + audit store (``runs/<id>/``).
         emit:        Optional sink for typed SSE events; defaults to a no-op.
-        model:       Label recorded in the manifest / ``RunStarted`` (e.g. ``"opus"``).
+        model:       Label recorded in the manifest / ``RunStarted`` (e.g. ``"sonnet"``).
         max_attempts: Max generate→verify cycles per symbol before escalating fails.
 
     Returns:

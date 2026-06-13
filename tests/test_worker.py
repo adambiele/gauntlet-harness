@@ -307,16 +307,16 @@ def test_make_worker_stub():
     assert isinstance(w, StubWorker)
 
 
-def test_make_worker_opus():
-    w = make_worker("opus")
+def test_make_worker_sonnet():
+    w = make_worker("sonnet")
     assert isinstance(w, ClaudeWorker)
-    assert w.model == "claude-opus-4-8"
+    assert w.model == "claude-sonnet-4-6"
 
 
 def test_make_worker_claude_alias():
     w = make_worker("claude")
     assert isinstance(w, ClaudeWorker)
-    assert w.model == "claude-opus-4-8"
+    assert w.model == "claude-sonnet-4-6"
 
 
 def test_make_worker_haiku():
@@ -356,7 +356,7 @@ def test_make_worker_unknown_raises():
 
 def test_make_worker_case_insensitive():
     """Factory should handle mixed case (strip + lower)."""
-    w = make_worker("  Opus  ")
+    w = make_worker("  Sonnet  ")
     assert isinstance(w, ClaudeWorker)
 
 
@@ -366,7 +366,7 @@ def test_make_worker_case_insensitive():
 
 def test_claude_worker_default_model():
     w = ClaudeWorker()
-    assert w.model == "claude-opus-4-8"
+    assert w.model == "claude-sonnet-4-6"
 
 
 def test_claude_worker_custom_model():

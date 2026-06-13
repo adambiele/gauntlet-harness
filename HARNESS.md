@@ -28,7 +28,7 @@ the loop — none of them call a model:
 | **Alarms** | `alarms/` + `escalation/` | Structured, severity-ranked alarms on every violation; unresolved claims escalate to a human triage queue | The harness decides what is wrong and what a human must see — independently of the worker |
 
 The **worker** (`worker/`) is the only model-backed part, and it sits behind a one-method
-interface (`Worker.generate(symbol, feedback) -> list[Claim]`). Swap Claude Opus for Haiku
+interface (`Worker.generate(symbol, feedback) -> list[Claim]`). Swap Claude for GPT-4o
 for a local Qwen and **nothing else in the harness changes** — the same guardrails gate it,
 the same checkpoints judge it, the same alarms catch it. That swappability is the proof that
 the pillars are genuinely separate from the agent.
@@ -40,7 +40,7 @@ the pillars are genuinely separate from the agent.
 For each public function in the target module, sequentially:
 
 ```
-            ┌─────────── worker (swappable: stub | opus | haiku | qwen) ────────────┐
+            ┌────────── worker (swappable: sonnet | haiku | gpt | qwen | stub) ──────────┐
             │                                                                        │
   symbol ──▶ generate ──▶ gate ──▶ verify ──▶ decide ─┬─ PASS  → lock → render ✓     │
             │ (claims)   (guard-   (sandbox)          ├─ FAIL  → alarm → retry ◀─────┘ (≤3, hybrid feedback)
@@ -129,12 +129,14 @@ never the source of truth. Re-running an unchanged module replays cached PASS re
 
 ## The model swap (bonus)
 
-`worker/llm_worker.py` ships three transports behind the `Worker` interface, chosen by name
-(`make_worker`): `ClaudeWorker` (Anthropic SDK, `claude-opus-4-8` / `claude-haiku-4-5`),
-`LocalWorker` (OpenAI-compatible SDK → a LAN `qwen3-coder`), and the LLM-free `StubWorker`.
-The dashboard's model picker and the CLI's `--worker` flag select among them at runtime. The
-harness output still ships only verified claims regardless of which model produced them — and a
-weaker model simply trips more guardrails and alarms, visibly.
+`worker/llm_worker.py` ships four transports behind the `Worker` interface, chosen by name
+(`make_worker`): `ClaudeWorker` (Anthropic SDK, `claude-sonnet-4-6` / `claude-haiku-4-5`),
+`OpenAIWorker` (OpenAI SDK → `gpt-4o`), `LocalWorker` (OpenAI-compatible SDK → a LAN
+`qwen3-coder`), and the LLM-free `StubWorker`. The dashboard's model picker and the CLI's
+`--worker` flag select among them at runtime — so the swap spans **two cloud providers plus a
+self-hosted local model**, with no change to the harness. The output still ships only verified
+claims regardless of which model produced them — and a weaker model simply trips more guardrails
+and alarms, visibly (we saw Haiku's first `sort_items` claim get caught and corrected on retry).
 
 ---
 
@@ -192,7 +194,17 @@ src/harness/
   observability/        # OTel init, span helper, in-process Aggregator, Langfuse opt-in
   persistence/          # immutable runs/<id>/ store + replay
   harness.py            # THE LOOP — wires every pillar
-  adapters/             # cli.py, http.py (FastAPI SSE), events.py (SSE contract)
-dashboard/              # Vite + React SPA (live loop, doc, triage, metrics)
-examples/planted_bug.py # the demo target
+  adapters/             # cli.py, http.py (FastAPI SSE + GET /examples), events.py (SSE contract)
+dashboard/              # Vite + React SPA (live loop, doc, triage, metrics, example picker)
+examples/               # demo targets — pick any from the dashboard or pass as a CLI arg
+  planted_bug.py        #   a sort that secretly reverses (the money demo)
+  math_utils.py         #   numeric utils with a planted off-by-one is_prime bug
+  string_utils.py       #   text helpers with a planted truncate-overflow bug
+  geometry.py           #   all-honest "green run" + one prose-only triage case
 ```
+
+The dashboard's **example picker** lists whatever is in `examples/` live: the SPA fetches
+`GET /examples` (path + one-line title parsed from each module docstring via `ast`, never
+imported) and falls back to a static list offline. Selecting one fills the module path;
+the box still accepts a custom path or pasted source. Add a new `examples/*.py` and it
+shows up in the picker automatically — no dashboard change needed.

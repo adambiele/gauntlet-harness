@@ -209,11 +209,11 @@ class ClaudeWorker(BaseLLMWorker):
     """Calls the Anthropic ``messages.create`` API.
 
     ``anthropic`` is imported lazily inside ``_complete`` so this module is importable
-    without the SDK installed. Uses ``claude-opus-4-8`` by default; pass a different
+    without the SDK installed. Uses ``claude-sonnet-4-6`` by default; pass a different
     model string for the cloud swap (e.g. ``claude-haiku-4-5``).
     """
 
-    DEFAULT_MODEL = "claude-opus-4-8"
+    DEFAULT_MODEL = "claude-sonnet-4-6"
 
     def __init__(self, model: Optional[str] = None) -> None:
         self.model = model or self.DEFAULT_MODEL
@@ -249,10 +249,11 @@ def _estimate_cost_anthropic(model: str, tokens_in: int, tokens_out: int) -> flo
     """
     # Prices: (input_per_mtok, output_per_mtok). Current Anthropic list prices.
     _PRICES: dict[str, tuple[float, float]] = {
-        "claude-opus-4-8":  (5.0,  25.0),
-        "claude-haiku-4-5": (1.0,   5.0),
+        "claude-sonnet-4-6": (3.0,  15.0),
+        "claude-haiku-4-5":  (1.0,   5.0),
+        "claude-opus-4-8":   (5.0,  25.0),
         # Fallback for unknown claude models (Sonnet-tier).
-        "claude":           (3.0,  15.0),
+        "claude":            (3.0,  15.0),
     }
     for prefix, (inp, out) in _PRICES.items():
         if model.startswith(prefix):
@@ -375,7 +376,7 @@ def make_worker(name: str) -> Worker:
 
     Supported names:
     - ``"stub"``            → StubWorker (no LLM calls; deterministic)
-    - ``"opus"`` / ``"claude"`` → ClaudeWorker(claude-opus-4-8)
+    - ``"sonnet"`` / ``"claude"`` → ClaudeWorker(claude-sonnet-4-6)
     - ``"haiku"``           → ClaudeWorker(claude-haiku-4-5)
     - ``"openai"`` / ``"gpt"``  → OpenAIWorker(gpt-4o)
     - ``"qwen"`` / ``"local"``  → LocalWorker(qwen3-coder)
@@ -389,8 +390,8 @@ def make_worker(name: str) -> Worker:
     if name == "stub":
         return StubWorker()
 
-    if name in ("opus", "claude"):
-        return ClaudeWorker(model="claude-opus-4-8")
+    if name in ("sonnet", "claude"):
+        return ClaudeWorker(model="claude-sonnet-4-6")
 
     if name == "haiku":
         return ClaudeWorker(model="claude-haiku-4-5")
@@ -402,6 +403,6 @@ def make_worker(name: str) -> Worker:
         return LocalWorker()
 
     raise ValueError(
-        f"Unknown worker name {name!r}. Valid names: 'stub', 'opus', 'claude', "
+        f"Unknown worker name {name!r}. Valid names: 'stub', 'sonnet', 'claude', "
         "'haiku', 'openai', 'gpt', 'qwen', 'local'."
     )
