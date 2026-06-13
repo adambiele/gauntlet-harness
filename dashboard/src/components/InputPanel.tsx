@@ -14,7 +14,7 @@ const MODELS = [
 ] as const;
 
 export function InputPanel({ onRun, onDemo, isRunning }: Props) {
-  const [module, setModule] = useState('examples/math_utils.py');
+  const [module, setModule] = useState('examples/planted_bug.py');
   const [model, setModel] = useState<string>('stub');
 
   return (
@@ -28,7 +28,7 @@ export function InputPanel({ onRun, onDemo, isRunning }: Props) {
           type="text"
           value={module}
           onChange={e => setModule(e.target.value)}
-          placeholder="examples/math_utils.py"
+          placeholder="examples/planted_bug.py"
           disabled={isRunning}
         />
       </div>

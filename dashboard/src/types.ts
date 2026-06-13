@@ -1,7 +1,7 @@
 // TypeScript mirror of src/harness/adapters/events.py — field-for-field match.
 // DO NOT alter field names; they are frozen contract.
 
-export type Severity = 'block' | 'high' | 'low';
+export type Severity = 'block' | 'high' | 'medium' | 'low';
 
 export interface RunStarted {
   type: 'run_started';
