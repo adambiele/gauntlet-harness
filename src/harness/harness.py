@@ -44,11 +44,19 @@ from harness.alarms.emit import to_event as alarm_to_event
 from harness.alarms.types import (
     BEHAVIOR_CONTRADICTION,
     EXAMPLE_FAILED,
+    MALFORMED_CLAIM,
     SIGNATURE_MISMATCH,
     Alarm,
 )
 from harness.checkpoints.runner import verify
-from harness.contracts import CheckpointResult, Claim, SymbolInfo, Verdict
+from harness.contracts import (
+    CheckpointResult,
+    Claim,
+    ClaimParseError,
+    DescriptionClaim,
+    SymbolInfo,
+    Verdict,
+)
 from harness.guardrails.enforce import enforce
 from harness.material.loader import load_module
 from harness.material.renderer import render_doc, render_index
@@ -143,7 +151,46 @@ def run(
 
                 while True:
                     # ── generate ─────────────────────────────────────────────
-                    claims = worker.generate(symbol, feedback)
+                    try:
+                        claims = worker.generate(symbol, feedback)
+                    except ClaimParseError as exc:
+                        # The worker emitted unparseable JSON. Don't crash the run —
+                        # raise MALFORMED_CLAIM, retry with the schema error as feedback,
+                        # and escalate the symbol if retries are exhausted.
+                        alarm = make_alarm(
+                            MALFORMED_CLAIM,
+                            name,
+                            f"worker emitted unparseable claim JSON: {exc}",
+                            claim_ref=name,
+                        )
+                        persist_alarm(store, run_id, alarm)
+                        emit(alarm_to_event(alarm))
+                        if attempt >= max_attempts:
+                            handler.handle(
+                                run_id,
+                                name,
+                                DescriptionClaim(
+                                    type="description",
+                                    target=name,
+                                    prose="worker repeatedly emitted unparseable claim JSON",
+                                ),
+                                f"malformed claim JSON after {attempt} attempts",
+                                store,
+                            )
+                            emit(ClaimEscalated(symbol=name, reason="malformed claim JSON"))
+                            escalated += 1
+                            break
+                        emit(
+                            ClaimRetry(
+                                symbol=name,
+                                attempt=attempt + 1,
+                                reason="malformed claim JSON",
+                            )
+                        )
+                        feedback = [alarm]
+                        attempt += 1
+                        continue
+
                     store.write_claims(run_id, name, claims)
                     emit(Generated(symbol=name, claim_count=len(claims)))
 

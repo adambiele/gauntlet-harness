@@ -98,3 +98,28 @@ def test_replay_cache_hit_and_miss(tmp_path):
     assert store.load_cached_pass("sort_items", "example", sort_hash) is None
     # A changed hash misses.
     assert store.load_cached_pass("add", "example", "deadbeef") is None
+
+
+def test_malformed_claims_escalate_instead_of_crashing(tmp_path):
+    """A worker that emits unparseable JSON must NOT 500 the whole run.
+
+    Repro of the live Haiku/fence failure mode: ClaimParseError → MALFORMED_CLAIM
+    alarm → retry → escalate, with the run completing normally.
+    """
+    from harness.contracts import ClaimParseError
+    from harness.worker.base import Worker
+
+    class MalformedWorker(Worker):
+        def generate(self, symbol, feedback=None):
+            raise ClaimParseError("worker emitted gibberish", schema_error=None)
+
+    store = LocalFileStore(root=tmp_path / "runs")
+    events: list = []
+    summary = run(FIXTURE, MalformedWorker(), store, emit=events.append, model="malformed")
+
+    assert summary["verified_claims"] == 0
+    assert summary["escalated"] >= 1  # each symbol escalates after retries
+    assert any(e.type == "alarm" and e.alarm_type == "MALFORMED_CLAIM" for e in events)
+    assert any(
+        e.type == "claim_escalated" and e.reason == "malformed claim JSON" for e in events
+    )
